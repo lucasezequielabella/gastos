@@ -4,17 +4,23 @@ import { useEffect, useState } from "react";
 import { Button, Card, Field, inputClass, SectionTitle } from "./ui";
 import { formatMoney, nombreMes } from "@/lib/format";
 import { upsertPresupuesto } from "@/lib/data";
-import type { GastoConRelaciones, Presupuesto as TPresupuesto } from "@/lib/types";
+import type {
+  Espacio,
+  GastoConRelaciones,
+  Presupuesto as TPresupuesto,
+} from "@/lib/types";
 
 export default function Presupuesto({
   presupuesto,
   gastosDelMes,
+  espacio,
   anio,
   mes,
   onSaved,
 }: {
   presupuesto: TPresupuesto | null;
   gastosDelMes: GastoConRelaciones[];
+  espacio: Espacio;
   anio: number;
   mes: number;
   onSaved: () => void;
@@ -40,7 +46,7 @@ export default function Presupuesto({
     setGuardando(true);
     setOk(false);
     try {
-      await upsertPresupuesto(anio, mes, num);
+      await upsertPresupuesto(espacio, anio, mes, num);
       setOk(true);
       onSaved();
     } catch (err) {

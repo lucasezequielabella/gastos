@@ -4,23 +4,27 @@ import { useState } from "react";
 import { Button, Field, inputClass, Modal } from "./ui";
 import { createGasto } from "@/lib/data";
 import { hoyISO } from "@/lib/format";
-import type { Categoria, Miembro } from "@/lib/types";
+import type { Categoria, Espacio, Miembro } from "@/lib/types";
 
 export default function RegistrarGasto({
   open,
   onClose,
   miembros,
   categorias,
+  espacio,
+  miembroActualId,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   miembros: Miembro[];
   categorias: Categoria[];
+  espacio: Espacio;
+  miembroActualId: string;
   onSaved: () => void;
 }) {
   const [monto, setMonto] = useState("");
-  const [miembroId, setMiembroId] = useState("");
+  const [miembroId, setMiembroId] = useState(miembroActualId);
   const [categoriaId, setCategoriaId] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [fecha, setFecha] = useState(hoyISO());
@@ -29,7 +33,7 @@ export default function RegistrarGasto({
 
   function reset() {
     setMonto("");
-    setMiembroId("");
+    setMiembroId(miembroActualId);
     setCategoriaId("");
     setDescripcion("");
     setFecha(hoyISO());
@@ -60,6 +64,7 @@ export default function RegistrarGasto({
         categoria_id: categoriaId,
         descripcion: descripcion.trim() || null,
         fecha,
+        espacio,
       });
       reset();
       onSaved();

@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import type {
   Categoria,
+  Espacio,
   Gasto,
   GastoConRelaciones,
   Miembro,
@@ -86,12 +87,13 @@ export async function deleteCategoria(id: string): Promise<void> {
 }
 
 // ---------- Gastos ----------
-export async function fetchGastos(): Promise<GastoConRelaciones[]> {
+export async function fetchGastos(
+  espacio: Espacio
+): Promise<GastoConRelaciones[]> {
   const { data, error } = await supabase
     .from("familia_gastos")
-    .select(
-      "*, miembro:familia_miembros(*), categoria:familia_categorias(*)"
-    )
+    .select("*, miembro:familia_miembros(*), categoria:familia_categorias(*)")
+    .eq("espacio", espacio)
     .order("fecha", { ascending: false })
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -101,7 +103,7 @@ export async function fetchGastos(): Promise<GastoConRelaciones[]> {
 export async function createGasto(
   gasto: Pick<
     Gasto,
-    "miembro_id" | "categoria_id" | "monto" | "descripcion" | "fecha"
+    "miembro_id" | "categoria_id" | "monto" | "descripcion" | "fecha" | "espacio"
   >
 ): Promise<void> {
   const { error } = await supabase.from("familia_gastos").insert(gasto);
@@ -114,16 +116,20 @@ export async function deleteGasto(id: string): Promise<void> {
 }
 
 // ---------- Presupuestos ----------
-export async function fetchPresupuestos(): Promise<Presupuesto[]> {
+export async function fetchPresupuestos(
+  espacio: Espacio
+): Promise<Presupuesto[]> {
   const { data, error } = await supabase
     .from("familia_presupuestos")
-    .select("*");
+    .select("*")
+    .eq("espacio", espacio);
   if (error) throw error;
   return data ?? [];
 }
 
-/** Crea o actualiza el presupuesto de un mes (upsert por anio+mes) */
+/** Crea o actualiza el presupuesto de un mes para un espacio */
 export async function upsertPresupuesto(
+  espacio: Espacio,
   anio: number,
   mes: number,
   monto_limite: number
@@ -131,8 +137,49 @@ export async function upsertPresupuesto(
   const { error } = await supabase
     .from("familia_presupuestos")
     .upsert(
-      { anio, mes, monto_limite, updated_at: new Date().toISOString() },
-      { onConflict: "anio,mes" }
+      {
+        espacio,
+        anio,
+        mes,
+        monto_limite,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "espacio,anio,mes" }
     );
   if (error) throw error;
+}
+
+// ---------- Actualización en vivo (realtime) ----------
+/**
+ * Se suscribe a cualquier cambio en las tablas de la app y ejecuta `onChange`.
+ * Devuelve una función para cancelar la suscripción.
+ */
+export function suscribirCambios(onChange: () => void): () => void {
+  const channel = supabase
+    .channel("gastos-cambios")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "familia_gastos" },
+      onChange
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "familia_presupuestos" },
+      onChange
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "familia_miembros" },
+      onChange
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "familia_categorias" },
+      onChange
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
